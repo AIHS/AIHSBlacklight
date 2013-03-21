@@ -1,0 +1,2 @@
+java -Xmx512m  -Dsolr.hosturl=http://127.0.0.1:8983/solr  -jar /var/lib/gems/1.9.1/gems/blacklight-4.0.1/lib/SolrMarc.jar /home/aihsuser5/AIHSblacklight/config/SolrMarc/config.properties /home/aihsuser5/Downloads/koha.mrc
+
