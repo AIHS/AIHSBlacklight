@@ -1,261 +1,151 @@
-== Welcome to Rails
+This is an open source Solr user interface discovery platform. You can use AIHSBlacklight to enable searching and browsing of your collections. AIHSBlacklight uses the Apache Solr search engine to search full text and/or metadata. AIHSBlacklight has a highly configurable Ruby on Rails front-end. 
 
-Rails is a web-application framework that includes everything needed to create
-database-backed web applications according to the Model-View-Control pattern.
+ruby v1.9.3 or higher
+git
+java 1.5 or higher
+access to a command prompt on the machine to install
+In addition, you must have the Bundler and Rails 3.0 gems installed. Other gem dependencies are defined in the blacklight.gemspec file and will be automatically loaded by Bundler.
 
-This pattern splits the view (also called the presentation) into "dumb"
-templates that are primarily responsible for inserting pre-built data in between
-HTML tags. The model contains the "smart" domain objects (such as Account,
-Product, Person, Post) that holds all the business logic and knows how to
-persist themselves to a database. The controller handles the incoming requests
-(such as Save New Account, Update Product, Show Post) by manipulating the model
-and directing data to the view.
+Configuring Apache Solr
 
-In Rails, the model is handled by what's called an object-relational mapping
-layer entitled Active Record. This layer allows you to present the data from
-database rows as objects and embellish these data objects with business logic
-methods. You can read more about Active Record in
-link:files/vendor/rails/activerecord/README.html.
+Solr Schema.xml
 
-The controller and view are handled by the Action Pack, which handles both
-layers by its two parts: Action View and Action Controller. These two layers
-are bundled in a single package due to their heavy interdependence. This is
-unlike the relationship between the Active Record and Action Pack that is much
-more separate. Each of these packages can be used independently outside of
-Rails. You can read more about Action Pack in
-link:files/vendor/rails/actionpack/README.html.
+Between the schema.xml and solrconfig.xml you can change and tune the search behavior following directions from the Solr wiki. Solr comes with example schema and solrconfig files, which you can use as a starting point for configuring your local Solr application.
 
+Solr uses a schema.xml file to define document fields (among other things). These fields store data for searching and for result display. You can find the example/solr/conf/schema.xml file in the Solr distribution you just downloaded and uncompressed.
 
-== Getting Started
+Documentation about the Solr schema.xml file is available at (http://wiki.apache.org/solr/SchemaXml).
 
-1. At the command prompt, create a new Rails application:
-       <tt>rails new myapp</tt> (where <tt>myapp</tt> is the application name)
+The default schema.xml file comes with some preset fields made to work with the example data. If you don't already have a schema.xml setup, we recommend using a simplified "fields" section like this:
 
-2. Change directory to <tt>myapp</tt> and start the web server:
-       <tt>cd myapp; rails server</tt> (run with --help for options)
+       <fields>
+		<field name="id" type="string" indexed="true" stored="true" required="true" />
+		<field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
+		<field name="timestamp" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
+		<field name="spell" type="textSpell" indexed="true" stored="true" multiValued="true"/>
+		<dynamicField name="*_i"  type="sint"    indexed="true"  stored="true"/>
+		<dynamicField name="*_s"  type="string"  indexed="true"  stored="true" multiValued="true"/>
+		<dynamicField name="*_l"  type="slong"   indexed="true"  stored="true"/>
+		<dynamicField name="*_t"  type="text"    indexed="true"  stored="true" multiValued="true"/>
+		<dynamicField name="*_b"  type="boolean" indexed="true"  stored="true"/>
+		<dynamicField name="*_f"  type="sfloat"  indexed="true"  stored="true"/>
+		<dynamicField name="*_d"  type="sdouble" indexed="true"  stored="true"/>
+		<dynamicField name="*_dt" type="date"    indexed="true"  stored="true"/>
+		<dynamicField name="random*" type="random" />
+		<dynamicField name="*_facet" type="string" indexed="true" stored="true" multiValued="true" />
+		<dynamicField name="*_display" type="string" indexed="false" stored="true" />
+	</fields>
+```        
+	
+  
+  Additionally, replace all of the tags after the "fields" section, and before 
+  the `</schema>` tag with this:
+```xml  
+	<uniqueKey>id</uniqueKey>
+	<defaultSearchField>text</defaultSearchField>
+	<solrQueryParser defaultOperator="OR"/>
+	<copyField source="*_facet" dest="text"/>
+Now you have a basic schema.xml file ready. Other fields can be specified, including a primary document title (title_display) and format (format), but these are easily configured in your application's CatalogController.
 
-3. Go to http://localhost:3000/ and you'll see:
-       "Welcome aboard: You're riding Ruby on Rails!"
+Fields that are "indexed" are searchable.
 
-4. Follow the guidelines to start developing your application. You can find
-the following resources handy:
+Fields that are "stored" are can be viewed/displayed from the Solr search results.
 
-* The Getting Started Guide: http://guides.rubyonrails.org/getting_started.html
-* Ruby on Rails Tutorial Book: http://www.railstutorial.org/
+The fields with asterisks ('*') in their names are "dynamic" fields. These allow you to create arbitrary tags at index time.
 
+The *_facet field can be used for creating your facets. When you index, simply define a field with _facet on the end: category_facet
 
-== Debugging Rails
+The *_display field can be used for storing text that doesn't need to be indexed. An example would be the raw MARC for a record's detail view: raw_marc_display
 
-Sometimes your application goes wrong. Fortunately there are a lot of tools that
-will help you debug it and get it back on the rails.
+For text that will be queried (and possibly displayed), use the *_t type field for tokenized text (text broken into pieces/words) or the *_s type for queries that should exactly match the field contents: description_t url_s
 
-First area to check is the application log files. Have "tail -f" commands
-running on the server.log and development.log. Rails will automatically display
-debugging and runtime information to these files. Debugging info will also be
-shown in the browser on requests from 127.0.0.1.
+The AIHSBlacklight application is generic enough to work with any Solr schema, but to manipulate the search results and single record displays, you'll need to know the stored fields in your indexed documents.
 
-You can also log your own messages directly into the log file from your code
-using the Ruby logger class from inside your controllers. Example:
+For more information, refer to the Solr documentation: http://wiki.apache.org/solr/SchemaXml
 
-  class WeblogController < ActionController::Base
-    def destroy
-      @weblog = Weblog.find(params[:id])
-      @weblog.destroy
-      logger.info("#{Time.now} Destroyed Weblog ID ##{@weblog.id}!")
-    end
-  end
+solrconfig.xml
 
-The result will be a message in your log file along the lines of:
+Solr uses the solrconfig.xml file to define searching configurations, set cache options, etc. You can find the examples/solr/conf/solrconfig.xml in the distribution directory you just uncompressed.
 
-  Mon Oct 08 14:22:29 +1000 2007 Destroyed Weblog ID #1!
+Documentation about the solrconfig.xml file is available at (http://wiki.apache.org/solr/SolrConfigXml).
 
-More information on how to use the logger is at http://www.ruby-doc.org/core/
+AIHSBlacklight expects two request handlers to be defined -- one to handle general search requests and one to handle single-document lookup. The names of these request handlers are configurable, but are called "search" and "document" respectively, out of the box.
 
-Also, Ruby documentation can be found at http://www.ruby-lang.org/. There are
-several books available online as well:
+Solr Search Request Handlers
 
-* Programming Ruby: http://www.ruby-doc.org/docs/ProgrammingRuby/ (Pickaxe)
-* Learn to Program: http://pine.fm/LearnToProgram/ (a beginners guide)
+When AIHSBlacklight does a collection search, it sends a request to a Solr request handler named "search". The most important settings in this handler definition are the "fl" param (field list) and the facet params.
 
-These two books will bring you up to speed on the Ruby language and also on
-programming in general.
+The "fl" param specifies which fields are returned in a Solr response. The facet related params set up the faceting mechanism.
 
+Find out more about the basic params: http://wiki.apache.org/solr/DisMaxRequestHandler
 
-== Debugger
+Find out more about the faceting params: http://wiki.apache.org/solr/SimpleFacetParameters
 
-Debugger support is available through the debugger command when you start your
-Mongrel or WEBrick server with --debugger. This means that you can break out of
-execution at any point in the code, investigate and change the model, and then,
-resume execution! You need to install ruby-debug to run the server in debugging
-mode. With gems, use <tt>sudo gem install ruby-debug</tt>. Example:
+How the "fl" param works in Blacklight's request handlers
 
-  class WeblogController < ActionController::Base
-    def index
-      @posts = Post.all
-      debugger
-    end
-  end
+AIHSBlacklight comes with a set of "default" views for rendering each document in a search results page. This view simply loops through all of the fields returned in each document in the Solr response. The "fl" (field list) param tells Solr which fields to include in the documents in the response ... and these are the fields rendered in the AIHSBlacklight default views.
+Thus, the fields you want rendered must be specified in "fl". Note that only "stored" fields will be available; if you want a field to be rendered in the result, it must be "stored" per the field definition in schema.xml.
 
-So the controller will accept the action, run the first line, then present you
-with a IRB prompt in the server window. Here you can do things like:
+The "fl" parameter definition in the "search" handler looks like this:
 
-  >> @posts.inspect
-  => "[#<Post:0x14a6be8
-          @attributes={"title"=>nil, "body"=>nil, "id"=>"1"}>,
-       #<Post:0x14a6620
-          @attributes={"title"=>"Rails", "body"=>"Only ten..", "id"=>"2"}>]"
-  >> @posts.first.title = "hello from a debugger"
-  => "hello from a debugger"
+    <str name="fl">id,score,author_display,(....lots of other fields)</str>
+You may also use an asterisk plus "score":
 
-...and even better, you can examine how your runtime objects actually work:
+    <str name="fl">*,score</str>
+How the facet params work in Blacklight's request handlers
 
-  >> f = @posts.first
-  => #<Post:0x13630c4 @attributes={"title"=>nil, "body"=>nil, "id"=>"1"}>
-  >> f.
-  Display all 152 possibilities? (y or n)
+In the search results view, Blacklight will look into the Solr response for facets. If you specify any facet.field params in your "search" handler, they will automatically get displayed in the facets list:
 
-Finally, when you're ready to resume execution, you can enter "cont".
+    <str name="facet.field">format</str>
+    <str name="facet.field">language_facet</str>
+AIHSBlacklight's "search" request handler: for search results
+
+When AIHSBlacklight displays a list of search results, it uses a Solr request handler named "search." Thus, the field list (fl param) for the "search" request handler should be tailored to what will be displayed in a search results page. Generally, this will not include fields containing a large quantity of text. The facet param should contain the facets to be displayed with the search results.
 
 
-== Console
+    <requestHandler name="search" class="solr.SearchHandler" >
+        <lst name="defaults">
+            <str name="defType">dismax</str>
+            <str name="echoParams">explicit</str>
+            <!-- list fields to be returned in the "fl" param -->
+            <str name="fl">*,score</str>
 
-The console is a Ruby shell, which allows you to interact with your
-application's domain model. Here you'll have all parts of the application
-configured, just like it is when the application is running. You can inspect
-domain models, change values, and save to the database. Starting the script
-without arguments will launch it in the development environment.
+            <str name="facet">on</str>
+            <str name="facet.mincount">1</str>
+            <str name="facet.limit">10</str>
 
-To start the console, run <tt>rails console</tt> from the application
-directory.
+            <!-- list fields to be displayed as facets here. -->
+            <str name="facet.field">format</str>
+            <str name="facet.field">language_facet</str>
 
-Options:
+            <str name="q.alt">*:*</str>
+        </lst>
+    </requestHandler>
+AIHSBlacklight's "document" request handler: for a single record
 
-* Passing the <tt>-s, --sandbox</tt> argument will rollback any modifications
-  made to the database.
-* Passing an environment name as an argument will load the corresponding
-  environment. Example: <tt>rails console production</tt>.
+When AIHSBlacklight displays a single record it uses a Solr request handler named "document". The "document" handler doesn't necessarily need to be different than the "search" handler, but it can be used to control which fields are available to display a single document. In the example below, there is no faceting set (facets are not displayed with a single record) and the "rows" param is set to 1 (since there will only be a single record). Also, the field list ("fl" param) could include fields containing large text values if they are desired for record display. Is is acceptable to include large amounts of data, because this handler should only be used to query for one document:
 
-To reload your controllers and models after launching the console run
-<tt>reload!</tt>
+<requestHandler name="document" class="solr.SearchHandler">
+    <lst name="defaults">
+        <str name="echoParams">explicit</str>
+        <str name="fl">*</str>
+        <str name="rows">1</str>
+        <str name="q">{!raw f=id v=$id}</str>
+        <!-- use id=blah instead of q=id:blah -->
+    </lst>
+</requestHandler>
+A Solr query for a single record might look like this: http://(yourSolrBaseUrl)/solr/select?id=my_doc_id&qt=document
 
-More information about irb can be found at:
-link:http://www.rubycentral.org/pickaxe/irb.html
+AIHSBlacklight Solr Schema and Solrconfig File Templates
 
 
-== dbconsole
 
-You can go to the command line of your database directly through <tt>rails
-dbconsole</tt>. You would be connected to the database with the credentials
-defined in database.yml. Starting the script without arguments will connect you
-to the development database. Passing an argument will connect you to a different
-database, like <tt>rails dbconsole production</tt>. Currently works for MySQL,
-PostgreSQL and SQLite 3.
+AIHS Changelog
 
-== Description of Contents
+Changed Schema.xml in Solr to follow Koha's version of MARC.
+Changed Schema.rb to match Schema.xml.
+Changed catalog_controler.rb to match above changes.
+Changed Solr_document.rb to add call number display.
 
-The default directory structure of a generated Ruby on Rails application:
 
-  |-- app
-  |   |-- assets
-  |       |-- images
-  |       |-- javascripts
-  |       `-- stylesheets
-  |   |-- controllers
-  |   |-- helpers
-  |   |-- mailers
-  |   |-- models
-  |   `-- views
-  |       `-- layouts
-  |-- config
-  |   |-- environments
-  |   |-- initializers
-  |   `-- locales
-  |-- db
-  |-- doc
-  |-- lib
-  |   `-- tasks
-  |-- log
-  |-- public
-  |-- script
-  |-- test
-  |   |-- fixtures
-  |   |-- functional
-  |   |-- integration
-  |   |-- performance
-  |   `-- unit
-  |-- tmp
-  |   |-- cache
-  |   |-- pids
-  |   |-- sessions
-  |   `-- sockets
-  `-- vendor
-      |-- assets
-          `-- stylesheets
-      `-- plugins
 
-app
-  Holds all the code that's specific to this particular application.
-
-app/assets
-  Contains subdirectories for images, stylesheets, and JavaScript files.
-
-app/controllers
-  Holds controllers that should be named like weblogs_controller.rb for
-  automated URL mapping. All controllers should descend from
-  ApplicationController which itself descends from ActionController::Base.
-
-app/models
-  Holds models that should be named like post.rb. Models descend from
-  ActiveRecord::Base by default.
-
-app/views
-  Holds the template files for the view that should be named like
-  weblogs/index.html.erb for the WeblogsController#index action. All views use
-  eRuby syntax by default.
-
-app/views/layouts
-  Holds the template files for layouts to be used with views. This models the
-  common header/footer method of wrapping views. In your views, define a layout
-  using the <tt>layout :default</tt> and create a file named default.html.erb.
-  Inside default.html.erb, call <% yield %> to render the view using this
-  layout.
-
-app/helpers
-  Holds view helpers that should be named like weblogs_helper.rb. These are
-  generated for you automatically when using generators for controllers.
-  Helpers can be used to wrap functionality for your views into methods.
-
-config
-  Configuration files for the Rails environment, the routing map, the database,
-  and other dependencies.
-
-db
-  Contains the database schema in schema.rb. db/migrate contains all the
-  sequence of Migrations for your schema.
-
-doc
-  This directory is where your application documentation will be stored when
-  generated using <tt>rake doc:app</tt>
-
-lib
-  Application specific libraries. Basically, any kind of custom code that
-  doesn't belong under controllers, models, or helpers. This directory is in
-  the load path.
-
-public
-  The directory available for the web server. Also contains the dispatchers and the
-  default HTML files. This should be set as the DOCUMENT_ROOT of your web
-  server.
-
-script
-  Helper scripts for automation and generation.
-
-test
-  Unit and functional tests along with fixtures. When using the rails generate
-  command, template test files will be generated for you and placed in this
-  directory.
-
-vendor
-  External libraries that the application depends on. Also includes the plugins
-  subdirectory. If the app has frozen rails, those gems also go here, under
-  vendor/rails/. This directory is in the load path.
