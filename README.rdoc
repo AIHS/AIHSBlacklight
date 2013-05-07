@@ -136,16 +136,7 @@ When AIHSBlacklight displays a single record it uses a Solr request handler name
 </requestHandler>
 A Solr query for a single record might look like this: http://(yourSolrBaseUrl)/solr/select?id=my_doc_id&qt=document
 
-AIHSBlacklight Solr Schema and Solrconfig File Templates
 
-
-
-AIHS Changelog
-
-Changed Schema.xml in Solr to follow Koha's version of MARC.
-Changed Schema.rb to match Schema.xml.
-Changed catalog_controler.rb to match above changes.
-Changed Solr_document.rb to add call number display.
 
 
 
